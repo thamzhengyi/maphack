@@ -1,0 +1,49 @@
+<!-- Wish list -->
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>Maphack | Play. Trade. Play.</title>
+    <link href="../bootstrap/css/bootstrap.css" rel="stylesheet">
+    <link type="text/css" rel="stylesheet" href="../stylesheets/main.css">
+</head>
+<body>
+    <div class="container">
+
+        <!-- Top bar -->
+        <div class="row-fluid top-container">
+            <div class="span5">
+                <img class="logo" src="../images/logo.png">
+            </div>
+            <div class="span4 offset8 signin-align">
+                <span> {{ user_mail }} <a href="{{ logout }}">logout</a></span>
+            </div>
+        </div>
+        <!-- End of top bar -->
+
+        <!-- Main navigation -->
+        <div class="navbar">
+            <div class="navbar-inner">
+                <ul class="nav">
+                    <li><a href="/maphack">Home</a></li>
+                    <li><a href="/profile">Profile</a></li>
+                    <li><a href="/inventory">Inventory</a></li>
+                    <li><a href="/playlist">Playlist</a></li>
+                    
+                </ul>
+            </div>
+        </div>    
+
+        <h4> Profile </h4>
+        <div>
+            Display name: {{ display_name }} <br>
+            About myself: {{ bio }}
+        </div>    
+        <br>
+        <div>
+            <a href="/profile/edit">
+                Edit
+            </a>
+        </div>
+    </div>
+</body>
+</html>

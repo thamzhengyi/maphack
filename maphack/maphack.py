@@ -173,7 +173,7 @@ class InventoryPage(webapp2.RequestHandler):
 
 				template_values = {
 					'img_url': user.img_url,
-					'display_name': users.get_current_user().email(),
+					'display_name': user.display_name,
 					'logout': users.create_logout_url(self.request.host_url),
 					'games': games, 
 					}
@@ -249,7 +249,7 @@ class PlaylistPage(webapp2.RequestHandler):
 
 				template_values = {
 					'img_url': user.img_url,
-					'display_name': users.get_current_user().email(),
+					'display_name': user.display_name,
 					'logout': users.create_logout_url(self.request.host_url),
 					'games': games, 
 					}

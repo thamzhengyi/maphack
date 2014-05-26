@@ -22,25 +22,25 @@
 <table class="table table-bordered table-striped">
 	<thead>
 		<tr>
-			<th>Title</th>
-			<th>Platform</th>
-			<th>Description</th>
-			<th>Image</th>
-			<th>Date</th>
+			<th width = "20%">Title</th>
+			<th width = "10%">Platform</th>
+			<th width = "40%">Description</th>
+			<th width = "20%">Image</th>
+			<th width = "10%">Date</th>
 		</tr>
 	</thead>
 	<tbody>
 		{% for game in games %}
 			<tr>
-				<td>{{ game.title }}</td>
-				<td>{{ game.platform }}</td>
-				<td>{{ game.description }} </td>
-				<td>
+				<td width = "20%">{{ game.title }}</td>
+				<td width = "10%">{{ game.platform }}</td>
+				<td width = "40%">{{ game.description }} </td>
+				<td width = "20%">
 					{% if game.img_url != "" %}
 						<img class="game_img" src="{{ game.img_url }}">
 					{% endif %}
 				</td>
-				<td>{{ game.date.strftime('%d/%m/%Y')  }}<br>
+				<td width = "10%">{{ game.date.strftime('%d/%m/%Y')  }}<br>
 					<form action="/inventory/deletegame" method="post">
 					<input type="hidden" name="game_id" value="{{ game.game_id }}">
 					<input type="submit" value="Delete">

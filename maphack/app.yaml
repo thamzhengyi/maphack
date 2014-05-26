@@ -5,7 +5,6 @@ api_version: 1
 threadsafe: true
 
 handlers:
-
 - url: /stylesheets
   static_dir: stylesheets
 
@@ -21,13 +20,15 @@ handlers:
 
 # Handler for front page
 - url: /
-  script: maphack.app
+  script: maphack.application
 
 # All other pages require login
 - url: /.*
-  script: maphack.app
+  script: maphack.application
   login: required
 
 libraries:
+- name: webapp2
+  version: latest
 - name: jinja2
   version: latest

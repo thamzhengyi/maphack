@@ -1,244 +1,319 @@
-import urllib
-import webapp2
 import jinja2
 import os
-import datetime
-
-from google.appengine.ext import ndb
+import urllib
+import webapp2
 from google.appengine.api import users
+from google.appengine.ext import ndb
 
-jinja_environment = jinja2.Environment(
-    loader=jinja2.FileSystemLoader(os.path.dirname(__file__) + "/templates"))
+JINJA_ENVIRONMENT = jinja2.Environment(
+	loader=jinja2.FileSystemLoader(os.path.dirname(__file__) + "/templates"),
+	extensions=['jinja2.ext.autoescape'],
+	autoescape=True)
 
-# This part for the front page
+# Datastore definitions
+class Person(ndb.Model):
+	# Key: user id
+	email = ndb.StringProperty()
+	display_name = ndb.StringProperty()
+	img_url = ndb.StringProperty()
+	bio = ndb.TextProperty()
+	setup = ndb.BooleanProperty()   # whether profile is set up
+
+class Inventory(ndb.Model):
+	# Key: user id
+	next_game = ndb.IntegerProperty()
+
+class Playlist(ndb.Model):
+	# Key: user id
+	next_game = ndb.IntegerProperty()
+
+class Game(ndb.Model):
+	# Key: game id
+	game_id = ndb.IntegerProperty()
+	title = ndb.StringProperty()
+	platform = ndb.StringProperty()
+	img_url = ndb.StringProperty()
+	description = ndb.TextProperty()
+	date = ndb.DateTimeProperty(auto_now_add=True)
+
 class MainPage(webapp2.RequestHandler):
-    # Handler for the front page.
+	def get(self):
+		template = JINJA_ENVIRONMENT.get_template('front.html')
+		self.response.out.write(template.render())
 
-    def get(self):
-        template = jinja_environment.get_template('front.html')
-        self.response.out.write(template.render())
+class Dashboard(webapp2.RequestHandler):
+	def get(self):
+		user_id = users.get_current_user().user_id()
+		if user_id == None:
+			self.redirect(users.create_login_url(self.request.uri))
+		else:
+			user_key = ndb.Key('Person', user_id)
+			user = user_key.get()
+			if user == None or user.setup == None or user.setup == False:
+				self.redirect('/setup')
+			else:
+				template_values = {
+					'img_url': user.img_url,
+					'display_name': user.display_name,
+					'logout': users.create_logout_url(self.request.host_url),
+					}
 
-class MainPageUser(webapp2.RequestHandler):
-    # Front page for those logged in
+				template = JINJA_ENVIRONMENT.get_template('dashboard.html')
+				self.response.out.write(template.render(template_values))
 
-    def get(self):
-        user = users.get_current_user()
-        if user:  # signed in already
-            parent = ndb.Key('Persons', users.get_current_user().email())
-            person = parent.get()
+class Setup(webapp2.RequestHandler):
+	def post(self):
+		user_id = users.get_current_user().user_id()
+		if user_id == None:
+			self.redirect(users.create_login_url(self.request.uri))
+		else:
+			user = ndb.Key('Person', user_id).get()
+			if user and user.setup:
+				self.redirect('/dashboard')
+			elif user == None:
+				user = Person(id = user_id)
 
-            template_values = {
-                'user_mail': users.get_current_user().email(),
-                'logout': users.create_logout_url(self.request.host_url),
-            }
-            template = jinja_environment.get_template('frontuser.html')
-            self.response.out.write(template.render(template_values))
-        else:
-            self.redirect(self.request.host_url)
+			user.email = users.get_current_user().user_id()
+			user.display_name = self.request.get('display_name')
+			user.img_url = self.request.get('img_url')
 
-class Persons(ndb.Model):
-    display_name = ndb.StringProperty()
-    bio = ndb.TextProperty()
+			if user.display_name.rstrip() != '':    # display name cannot be empty
+				user.setup = True
+				user.put()
+				self.redirect('/dashboard')
+			else:
+				self.redirect('/setup')
 
-class Inventories(ndb.Model):
-    next_game = ndb.IntegerProperty()
+	def get(self):
+		user_id = users.get_current_user().user_id()
+		if user_id == None:
+			self.redirect(users.create_login_url(self.request.uri))
 
-class Playlists(ndb.Model):
-    next_game = ndb.IntegerProperty()
-
-class Games(ndb.Model):
-    game_id = ndb.IntegerProperty()
-    game_title = ndb.StringProperty()
-    game_platform = ndb.StringProperty()
-    image_link = ndb.StringProperty()
-    description = ndb.TextProperty()
-    date = ndb.DateTimeProperty(auto_now_add=True)
+		user = ndb.Key('Person', user_id).get()
+		if user and user.setup:
+			self.redirect('/dashboard')
+		else:
+			template_values = {
+				'img_url': "../images/profile_pic.png",
+				'display_name': users.get_current_user().email(),
+				'logout': users.create_logout_url(self.request.host_url),
+				}
+			template = JINJA_ENVIRONMENT.get_template('setup.html')
+			self.response.out.write(template.render(template_values))
 
 class Profile(webapp2.RequestHandler):
-    def get(self):
-        user = users.get_current_user()
-        if user:  # signed in already
-            parent = ndb.Key('Persons', users.get_current_user().email())
-            person = parent.get()
+	def get(self):
+		user_id = users.get_current_user().user_id()
+		if user_id == None:
+			self.redirect(users.create_login_url(self.request.uri))
+		else:
+			user = ndb.Key('Person', user_id).get()
+			if user == None or user.setup == None or user.setup == False:
+				self.redirect('/setup')
+			else:
+				template_values = {
+					'img_url': user.img_url,
+					'display_name': user.display_name,
+					'bio': user.bio,
+					'logout': users.create_logout_url(self.request.host_url),
+					}
+				template = JINJA_ENVIRONMENT.get_template('profile.html')
+				self.response.out.write(template.render(template_values))
 
-            template_values = {
-                'user_mail': users.get_current_user().email(),
-                'logout': users.create_logout_url(self.request.host_url),
-                'display_name': person.display_name,
-                'bio': person.bio
-            }
-            template = jinja_environment.get_template('profile.html')
-            self.response.out.write(template.render(template_values))
-        else:
-            self.redirect(self.request.host_url)
+class ProfileEdit(webapp2.RequestHandler):
+	def get(self):
+		user_id = users.get_current_user().user_id()
+		if user_id == None:
+			self.redirect(users.create_login_url(self.request.uri))
+		else:
+			user = ndb.Key('Person', user_id).get()
+			if user == None or user.setup == None or user.setup == False:
+				self.redirect('/setup')
+			else:
+				template_values = {
+					'img_url': user.img_url,
+					'display_name': user.display_name,
+					'logout': users.create_logout_url(self.request.host_url),
+					}
+				template = JINJA_ENVIRONMENT.get_template('profile_edit.html')
+				self.response.out.write(template.render(template_values))
 
-class EditProfile(webapp2.RequestHandler):
-    def show(self):
-        user = users.get_current_user()
-        if user:  # signed in already
-            parent = ndb.Key('Persons', users.get_current_user().email())
-            person = parent.get()
+	def post(self):
+		user_id = users.get_current_user().user_id()
+		if user_id == None:
+			self.redirect(users.create_login_url(self.request.uri))
+		else:
+			user = ndb.Key('Person', user_id).get()
+			if user == None or user.setup == None or user.setup == False:
+				self.redirect('/setup')
+			else:
+				user.display_name = self.request.get('display_name')
+				user.img_url = self.request.get('img_url')
+				user.bio = self.request.get('bio')
+				if user.display_name.rstrip() != '':    # display name cannot be empty
+					user.put()
+				self.redirect('/profile')
 
-            template_values = {
-                'user_mail': users.get_current_user().email(),
-                'logout': users.create_logout_url(self.request.host_url),
-                'display_name': person.display_name,
-                'bio': person.bio
-            }
-            template = jinja_environment.get_template('edit_profile.html')
-            self.response.out.write(template.render(template_values))
-        else:
-            self.redirect(self.request.host_url)
+class InventoryPage(webapp2.RequestHandler):
+	def show(self):
+		user_id = users.get_current_user().user_id()
+		if user_id == None:
+			self.redirect(users.create_login_url(self.request.uri))
 
-    def get(self):
-            self.show()
+		else:
+			user = ndb.Key('Person', user_id).get()
+			if user == None or user.setup == None or user.setup == False:
+				self.redirect('/setup')
+			else:
+				games = ndb.gql("SELECT * "
+					"FROM Game "
+					"WHERE ANCESTOR IS :1 "
+					"ORDER BY date DESC",
+					ndb.Key('Inventory', user_id, parent = ndb.Key('Person', user_id)))
 
-    def post(self):
-            parent = ndb.Key('Persons', users.get_current_user().email())
-            person = parent.get()
+				template_values = {
+					'img_url': user.img_url,
+					'display_name': users.get_current_user().email(),
+					'logout': users.create_logout_url(self.request.host_url),
+					'games': games, 
+					}
 
-            person.display_name = self.request.get('display_name')
-            person.bio = self.request.get('bio')
+				template = JINJA_ENVIRONMENT.get_template('inventory.html')
+				self.response.out.write(template.render(template_values))
 
-            person.put()
-            self.redirect('/profile')
+	def get(self):
+		self.show()
 
-class Inventory(webapp2.RequestHandler):
-    """ Form for getting and displaying games in Inventory. """
+	def post(self):
+		user_id = users.get_current_user().user_id()
+		if user_id == None:
+			self.redirect(users.create_login_url(self.request.uri))
 
-    def show(self):
-        # Displays the page. Used by both get and post
-        user = users.get_current_user()
-        if user:  # signed in already
+		else:
+			user = ndb.Key('Person', user_id).get()
+			if user == None or user.setup == None or user.setup == False:
+				self.redirect('/setup')
+			else:
+				inventory_key = ndb.Key('Inventory', user_id, parent = ndb.Key('Person', user_id))
+				inventory = inventory_key.get()
+				if inventory == None:
+					inventory = Inventory(parent = ndb.Key('Person', user_id), id = user_id)
+					inventory.next_game = 1
 
-            # Retrieve person
-            parent_key = ndb.Key('Inventories', users.get_current_user().email())
+				game = Game(parent=inventory_key, id=str(inventory.next_game))
 
-            # Retrieve games
-            query = ndb.gql("SELECT * "
-                            "FROM Games "
-                            "WHERE ANCESTOR IS :1 "
-                            "ORDER BY date DESC",
-                            parent_key)
+				game.game_id = inventory.next_game
+				game.title = self.request.get('title')
+				game.platform = self.request.get('platform')
+				game.img_url = self.request.get('img_url')
+				game.description = self.request.get('description')
 
-            template_values = {
-                'user_mail': users.get_current_user().email(),
-                'logout': users.create_logout_url(self.request.host_url),
-                'games': query,
-            }
+				if game.title.rstrip() != '' and game.platform.rstrip() != '':
+					inventory.next_game += 1
+					inventory.put()
+					game.put()
 
-            template = jinja_environment.get_template('inventory.html')
-            self.response.out.write(template.render(template_values))
-        else:
-            self.redirect(self.request.host_url)
+				self.show()
 
-    def get(self):
-        self.show()
+class InventoryDeleteGame(webapp2.RequestHandler):
+	def post(self):
+		user_id = users.get_current_user().user_id()
+		if user_id == None:
+			self.redirect(users.create_login_url(self.request.uri))
 
-    def post(self):
-        # Retrieve inventory
-        parent = ndb.Key('Inventories', users.get_current_user().email())
-        inventory = parent.get()
-        if inventory == None:
-            inventory = Inventories(id=users.get_current_user().email())
-            inventory.next_game = 1
+		else:
+			user = ndb.Key('Person', user_id).get()
+			if user == None or user.setup == None or user.setup == False:
+				self.redirect('/setup')
+			else:
+				game = ndb.Key('Person', user_id, 'Inventory', user_id, 'Game', self.request.get('game_id'))
+				game.delete()
+				self.redirect('/inventory')
 
-        game = Games(parent=parent, id=str(inventory.next_game))
-        game.game_id = inventory.next_game
+class PlaylistPage(webapp2.RequestHandler):
+	def show(self):
+		user_id = users.get_current_user().user_id()
+		if user_id == None:
+			self.redirect(users.create_login_url(self.request.uri))
 
-        game.game_title = self.request.get('game_title')
-        game.game_platform = self.request.get('game_platform')
-        game.image_link = self.request.get('image_link')
-        game.description = self.request.get('description')
+		else:
+			user = ndb.Key('Person', user_id).get()
+			if user == None or user.setup == None or user.setup == False:
+				self.redirect('/setup')
+			else:
+				games = ndb.gql("SELECT * "
+					"FROM Game "
+					"WHERE ANCESTOR IS :1 "
+					"ORDER BY date DESC",
+					ndb.Key('Playlist', user_id, parent = ndb.Key('Person', user_id)))
 
-        # Only store an item if there is a game title and game platform
-        if game.game_title.rstrip() != '' and game.game_platform.rstrip() != '':
-            inventory.next_game += 1
-            inventory.put()
-            game.put()
+				template_values = {
+					'img_url': user.img_url,
+					'display_name': users.get_current_user().email(),
+					'logout': users.create_logout_url(self.request.host_url),
+					'games': games, 
+					}
 
-        self.show()
+				template = JINJA_ENVIRONMENT.get_template('playlist.html')
+				self.response.out.write(template.render(template_values))
 
-class Playlist(webapp2.RequestHandler):
-    """ Form for getting and displaying games in Playlist. """
+	def get(self):
+		self.show()
 
-    def show(self):
-        # Displays the page. Used by both get and post
-        user = users.get_current_user()
-        if user:  # signed in already
+	def post(self):
+		user_id = users.get_current_user().user_id()
+		if user_id == None:
+			self.redirect(users.create_login_url(self.request.uri))
 
-            # Retrieve person
-            parent_key = ndb.Key('Playlists', users.get_current_user().email())
+		else:
+			user = ndb.Key('Person', user_id).get()
+			if user == None or user.setup == None or user.setup == False:
+				self.redirect('/setup')
+			else:
+				playlist_key = ndb.Key('Playlist', user_id, parent = ndb.Key('Person', user_id))
+				playlist = playlist_key.get()
+				if playlist == None:
+					playlist = Playlist(parent = ndb.Key('Person', user_id), id = user_id)
+					playlist.next_game = 1
 
-            # Retrieve games
-            query = ndb.gql("SELECT * "
-                            "FROM Games "
-                            "WHERE ANCESTOR IS :1 "
-                            "ORDER BY date DESC",
-                            parent_key)
+				game = Game(parent=playlist_key, id=str(playlist.next_game))
 
-            template_values = {
-                'user_mail': users.get_current_user().email(),
-                'logout': users.create_logout_url(self.request.host_url),
-                'games': query,
-            }
+				game.game_id = playlist.next_game
+				game.title = self.request.get('title')
+				game.platform = self.request.get('platform')
+				game.img_url = self.request.get('img_url')
+				game.description = self.request.get('description')
 
-            template = jinja_environment.get_template('playlist.html')
-            self.response.out.write(template.render(template_values))
-        else:
-            self.redirect(self.request.host_url)
+				if game.title.rstrip() != '' and game.platform.rstrip() != '':
+					playlist.next_game += 1
+					playlist.put()
+					game.put()
 
-    def get(self):
-        self.show()
+				self.show()
 
-    def post(self):
-        # Retrieve playlist
-        parent = ndb.Key('Playlists', users.get_current_user().email())
-        playlist = parent.get()
-        if playlist == None:
-            playlist = Playlists(id=users.get_current_user().email())
-            playlist.next_game = 1
+class PlaylistDeleteGame(webapp2.RequestHandler):
+	def post(self):
+		user_id = users.get_current_user().user_id()
+		if user_id == None:
+			self.redirect(users.create_login_url(self.request.uri))
 
-        game = Games(parent=parent, id=str(playlist.next_game))
-        game.game_id  = playlist.next_game
+		else:
+			user = ndb.Key('Person', user_id).get()
+			if user == None or user.setup == None or user.setup == False:
+				self.redirect('/setup')
+			else:
+				game = ndb.Key('Person', user_id, 'Playlist', user_id, 'Game', self.request.get('game_id'))
+				game.delete()
+				self.redirect('/playlist')
 
-        game.game_title = self.request.get('game_title')
-        game.game_platform = self.request.get('game_platform')
-        game.image_link = self.request.get('image_link')
-        game.description = self.request.get('description')
-
-        # Only store an item if there is a game title and game platform
-        if game.game_title.rstrip() != '' and game.game_platform.rstrip() != '':
-            playlist.next_game += 1
-            playlist.put()
-            game.put()
-
-        self.show()
-
-# For deleting a game from inventory
-class DeleteFromInventory(webapp2.RequestHandler):
-    # Delete game specified by user
-
-    def post(self):
-        game = ndb.Key('Inventories', users.get_current_user().email(), 'Games', self.request.get('game_id'))
-        game.delete()
-        self.redirect('/inventory')
-
-# For deleting a game from playlist
-class DeleteFromPlaylist(webapp2.RequestHandler):
-    # Delete game specified by user
-
-    def post(self):
-        game = ndb.Key('Playlists', users.get_current_user().email(), 'Games', self.request.get('game_id'))
-        game.delete()
-        self.redirect('/playlist')
-
-app = webapp2.WSGIApplication([('/', MainPage),
-                               ('/maphack', MainPageUser),
-                               ('/inventory', Inventory),
-                               ('/playlist', Playlist),
-                               ('/inventory/deletegame', DeleteFromInventory),
-                               ('/playlist/deletegame', DeleteFromPlaylist),
-                               ('/profile', Profile),
-                               ('/profile/edit', EditProfile)],
-                              debug=True)
+application = webapp2.WSGIApplication([
+	('/', MainPage),
+	('/dashboard', Dashboard),
+	('/setup', Setup),
+	('/profile', Profile),
+	('/profile/edit', ProfileEdit),
+	('/inventory', InventoryPage),
+	('/inventory/deletegame', InventoryDeleteGame),
+	('/playlist', PlaylistPage),
+	('/playlist/deletegame', PlaylistDeleteGame),
+	], debug=True)
